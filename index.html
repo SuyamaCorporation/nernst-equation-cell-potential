@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nernst Equation Cell Potential Calculator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { background: #030712; }
+  input[type=range] { accent-color: #06b6d4; }
+  input[type=number] { background: #1f2937; border: 1px solid #374151; color: #f3f4f6; border-radius: 6px; padding: 4px 8px; width: 100%; }
+  input[type=number]:focus { outline: none; border-color: #06b6d4; }
+</style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen p-4">
+<div class="max-w-5xl mx-auto">
+  <h1 class="text-3xl font-bold text-center mb-1 text-cyan-400">Nernst Equation Cell Potential</h1>
+  <p class="text-center text-gray-400 mb-6 text-sm">E = E° − (RT/nF) · ln([Red]/[Ox])</p>
+
+  <!-- Inputs -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-gray-900 rounded-xl p-4 border border-gray-800">
+      <h2 class="text-sm font-semibold mb-3 text-cyan-300">Parameters</h2>
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs text-gray-400">Standard Potential E° (V)</label>
+          <input type="number" id="eStd" value="1.10" step="0.01" min="-3" max="3" class="mt-1">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400">Number of electrons n</label>
+          <input type="number" id="nElec" value="2" step="1" min="1" max="8" class="mt-1">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400">Temperature T (K)</label>
+          <div class="flex gap-2 items-center">
+            <input type="range" id="tempSlider" min="200" max="500" value="298" class="flex-1 h-2">
+            <span id="tempVal" class="text-xs text-cyan-400 w-16 text-right">298 K</span>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-gray-400">[Ox] Oxidant concentration (M)</label>
+          <div class="flex gap-2 items-center">
+            <input type="range" id="oxSlider" min="-4" max="2" value="0" step="0.05" class="flex-1 h-2">
+            <span id="oxVal" class="text-xs text-cyan-400 w-20 text-right">1.000 M</span>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-gray-400">[Red] Reductant concentration (M)</label>
+          <div class="flex gap-2 items-center">
+            <input type="range" id="redSlider" min="-4" max="2" value="0" step="0.05" class="flex-1 h-2">
+            <span id="redVal" class="text-xs text-cyan-400 w-20 text-right">1.000 M</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-gray-900 rounded-xl p-4 border border-gray-800 flex flex-col justify-center items-center">
+      <p class="text-xs text-gray-400 mb-1">Cell Potential E</p>
+      <p id="eCell" class="text-5xl font-black text-green-400 mb-2">1.100 V</p>
+      <div class="bg-gray-800 rounded-lg p-2 w-full text-center mt-1">
+        <p class="text-xs text-gray-400">RT/nF correction</p>
+        <p id="correction" class="text-sm font-bold text-yellow-300">0.000 V</p>
+      </div>
+      <div class="bg-gray-800 rounded-lg p-2 w-full text-center mt-2">
+        <p class="text-xs text-gray-400">Reaction Quotient Q</p>
+        <p id="qVal" class="text-sm font-bold text-purple-300">1.000</p>
+      </div>
+      <div class="bg-gray-800 rounded-lg p-2 w-full text-center mt-2">
+        <p class="text-xs text-gray-400">Equilibrium Conc. Ratio [Red]/[Ox] at E=0</p>
+        <p id="eqRatio" class="text-sm font-bold text-orange-300">1.86×10<sup>37</sup></p>
+      </div>
+    </div>
+
+    <div class="bg-gray-900 rounded-xl p-4 border border-gray-800">
+      <h2 class="text-sm font-semibold mb-3 text-cyan-300">Formula Breakdown</h2>
+      <div class="font-mono text-xs space-y-1 text-gray-300">
+        <p>E  = E° - (RT/nF)·ln(Q)</p>
+        <p>R  = 8.314 J/(mol·K)</p>
+        <p>F  = 96485 C/mol</p>
+        <p class="mt-2 text-cyan-400">At 25°C (298 K):</p>
+        <p>E  = E° - (0.02569/n)·ln(Q)</p>
+        <p>   = E° - (0.05916/n)·log₁₀(Q)</p>
+      </div>
+      <div class="mt-4 space-y-1 text-xs">
+        <p class="text-gray-400">Cell spontaneous if:</p>
+        <p id="spontCheck" class="font-bold text-green-400">E > 0 → Spontaneous</p>
+        <p class="text-gray-400 mt-2">ΔG° = −nFE°</p>
+        <p id="deltaG" class="font-bold text-yellow-300">ΔG° = −212.3 kJ/mol</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Graph -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+    <div class="bg-gray-900 rounded-xl p-4 border border-gray-800">
+      <h2 class="text-sm font-semibold mb-2 text-gray-300">Cell Potential vs log([Red]/[Ox])</h2>
+      <canvas id="nernstCanvas" width="420" height="300" class="w-full rounded"></canvas>
+    </div>
+    <div class="bg-gray-900 rounded-xl p-4 border border-gray-800">
+      <h2 class="text-sm font-semibold mb-2 text-gray-300">E vs Temperature (at current concentrations)</h2>
+      <canvas id="tempCanvas" width="420" height="300" class="w-full rounded"></canvas>
+    </div>
+  </div>
+
+  <!-- Standard Potential Table -->
+  <div class="bg-gray-900 rounded-xl p-5 border border-gray-800">
+    <h2 class="text-lg font-semibold mb-3 text-cyan-300">Standard Reduction Potentials (Reference)</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-gray-400 border-b border-gray-700">
+            <th class="text-left py-2 pr-4">Half-Reaction</th>
+            <th class="text-right pr-4">E° (V)</th>
+            <th class="text-right">n</th>
+          </tr>
+        </thead>
+        <tbody id="stdTable"></tbody>
+      </table>
+    </div>
+    <p class="text-xs text-gray-500 mt-2">Click any row to load its E° value</p>
+  </div>
+</div>
+
+<script>
+const R = 8.314, F = 96485;
+
+const halfReactions = [
+  { name: "F₂ + 2e⁻ → 2F⁻",                   e0:  2.87, n: 2 },
+  { name: "MnO₄⁻ + 8H⁺ + 5e⁻ → Mn²⁺ + 4H₂O",  e0:  1.51, n: 5 },
+  { name: "Cl₂ + 2e⁻ → 2Cl⁻",                  e0:  1.36, n: 2 },
+  { name: "O₂ + 4H⁺ + 4e⁻ → 2H₂O",             e0:  1.23, n: 4 },
+  { name: "Cu²⁺ + 2e⁻ → Cu",                    e0:  0.34, n: 2 },
+  { name: "Cu²⁺/Zn (Daniell cell)",             e0:  1.10, n: 2 },
+  { name: "Fe³⁺ + e⁻ → Fe²⁺",                  e0:  0.77, n: 1 },
+  { name: "2H⁺ + 2e⁻ → H₂  (SHE)",             e0:  0.00, n: 2 },
+  { name: "Fe²⁺ + 2e⁻ → Fe",                   e0: -0.44, n: 2 },
+  { name: "Zn²⁺ + 2e⁻ → Zn",                   e0: -0.76, n: 2 },
+  { name: "Li⁺ + e⁻ → Li",                     e0: -3.04, n: 1 },
+];
+
+const eStdIn = document.getElementById('eStd');
+const nElecIn = document.getElementById('nElec');
+const tempSlider = document.getElementById('tempSlider');
+const oxSlider = document.getElementById('oxSlider');
+const redSlider = document.getElementById('redSlider');
+
+function getOx()  { return Math.pow(10, parseFloat(oxSlider.value)); }
+function getRed() { return Math.pow(10, parseFloat(redSlider.value)); }
+
+function nernst(e0, n, T, ox, red) {
+  const Q = red / ox;
+  return e0 - (R * T / (n * F)) * Math.log(Q);
+}
+
+function fmtSci(v) {
+  if (v === 0) return '0';
+  const exp = Math.floor(Math.log10(Math.abs(v)));
+  const mant = v / Math.pow(10, exp);
+  return mant.toFixed(2) + '×10<sup>' + exp + '</sup>';
+}
+
+function update() {
+  const e0 = parseFloat(eStdIn.value) || 0;
+  const n  = parseInt(nElecIn.value) || 1;
+  const T  = parseFloat(tempSlider.value);
+  const ox  = getOx();
+  const red = getRed();
+
+  document.getElementById('tempVal').textContent = T + ' K';
+  document.getElementById('oxVal').textContent  = ox.toFixed(4) + ' M';
+  document.getElementById('redVal').textContent = red.toFixed(4) + ' M';
+
+  const Q = red / ox;
+  const correction = (R * T / (n * F)) * Math.log(Q);
+  const E = e0 - correction;
+
+  document.getElementById('eCell').textContent = E.toFixed(4) + ' V';
+  document.getElementById('correction').textContent = (-correction).toFixed(4) + ' V';
+  document.getElementById('qVal').textContent = Q.toExponential(3);
+
+  // Equilibrium ratio: E=0 when ln(Q_eq) = nFE0/RT → Q_eq = exp(nFE0/RT)
+  const Qeq = Math.exp(n * F * e0 / (R * T));
+  document.getElementById('eqRatio').innerHTML = fmtSci(Qeq);
+
+  const spontEl = document.getElementById('spontCheck');
+  if (E > 0.001) { spontEl.textContent = 'E > 0 → Spontaneous'; spontEl.className = 'font-bold text-green-400'; }
+  else if (E < -0.001) { spontEl.textContent = 'E < 0 → Non-spontaneous'; spontEl.className = 'font-bold text-red-400'; }
+  else { spontEl.textContent = 'E ≈ 0 → Equilibrium'; spontEl.className = 'font-bold text-yellow-400'; }
+
+  const dG = -n * F * e0 / 1000;
+  document.getElementById('deltaG').textContent = 'ΔG° = ' + dG.toFixed(1) + ' kJ/mol';
+
+  drawNernstGraph(e0, n, T, ox, red);
+  drawTempGraph(e0, n, ox, red);
+}
+
+function drawNernstGraph(e0, n, T, ox, red) {
+  const canvas = document.getElementById('nernstCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#111827'; ctx.fillRect(0, 0, W, H);
+
+  const pad = { l: 60, r: 20, t: 25, b: 45 };
+  const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+
+  const logQmin = -6, logQmax = 6;
+  const slope = -(R * T / (n * F)) / Math.log(10);
+  const eAtMid = e0;
+
+  // Range
+  const evals = [];
+  for (let lq = logQmin; lq <= logQmax; lq += 0.1) {
+    evals.push(e0 + slope * lq);
+  }
+  const emin = Math.min(...evals) - 0.1;
+  const emax = Math.max(...evals) + 0.1;
+
+  function toX(lq) { return pad.l + ((lq - logQmin) / (logQmax - logQmin)) * cw; }
+  function toY(e)  { return pad.t + ch - ((e - emin) / (emax - emin)) * ch; }
+
+  // Grid
+  ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 1;
+  for (let lq = logQmin; lq <= logQmax; lq += 2) {
+    ctx.beginPath(); ctx.moveTo(toX(lq), pad.t); ctx.lineTo(toX(lq), pad.t + ch); ctx.stroke();
+    ctx.fillStyle = '#6B7280'; ctx.font = '10px monospace';
+    ctx.fillText(lq, toX(lq) - 6, pad.t + ch + 14);
+  }
+  for (let e = Math.ceil(emin * 5) / 5; e <= emax; e += 0.2) {
+    const py = toY(e);
+    ctx.beginPath(); ctx.moveTo(pad.l, py); ctx.lineTo(pad.l + cw, py); ctx.stroke();
+    ctx.fillStyle = '#6B7280'; ctx.font = '10px monospace';
+    ctx.fillText(e.toFixed(1), pad.l - 40, py + 4);
+  }
+
+  // Axes
+  ctx.strokeStyle = '#4B5563'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + ch); ctx.lineTo(pad.l + cw, pad.t + ch); ctx.stroke();
+
+  // Zero line
+  if (0 >= emin && 0 <= emax) {
+    ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(pad.l, toY(0)); ctx.lineTo(pad.l + cw, toY(0)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#dc2626'; ctx.font = '10px sans-serif'; ctx.fillText('E = 0', pad.l + cw - 30, toY(0) - 4);
+  }
+
+  // Nernst line
+  ctx.beginPath(); ctx.strokeStyle = '#06b6d4'; ctx.lineWidth = 2.5;
+  let first = true;
+  for (let lq = logQmin; lq <= logQmax; lq += 0.1) {
+    const e = e0 + slope * lq;
+    if (first) { ctx.moveTo(toX(lq), toY(e)); first = false; }
+    else ctx.lineTo(toX(lq), toY(e));
+  }
+  ctx.stroke();
+
+  // E° marker
+  const eq0Y = toY(e0);
+  ctx.beginPath(); ctx.setLineDash([3,3]); ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1;
+  ctx.moveTo(pad.l, eq0Y); ctx.lineTo(pad.l + cw, eq0Y); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#fbbf24'; ctx.font = '10px sans-serif';
+  ctx.fillText('E° = ' + e0.toFixed(2) + ' V', pad.l + 4, eq0Y - 4);
+
+  // Current point
+  const curLogQ = Math.log10(red / ox);
+  const curE = e0 + slope * curLogQ;
+  if (curLogQ >= logQmin && curLogQ <= logQmax) {
+    ctx.beginPath(); ctx.arc(toX(curLogQ), toY(curE), 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#f97316'; ctx.fill();
+    ctx.fillStyle = '#f97316'; ctx.font = 'bold 10px sans-serif';
+    ctx.fillText('E=' + curE.toFixed(3) + 'V', toX(curLogQ) + 8, toY(curE) - 4);
+  }
+
+  // Axes labels
+  ctx.fillStyle = '#9CA3AF'; ctx.font = '11px sans-serif';
+  ctx.fillText('E (V)', pad.l - 55, pad.t - 6);
+  ctx.fillText('log₁₀([Red]/[Ox])', pad.l + cw / 2 - 55, pad.t + ch + 38);
+}
+
+function drawTempGraph(e0, n, ox, red) {
+  const canvas = document.getElementById('tempCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#111827'; ctx.fillRect(0, 0, W, H);
+
+  const pad = { l: 60, r: 20, t: 25, b: 45 };
+  const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+
+  const Tmin = 200, Tmax = 500;
+  const Q = red / ox;
+
+  const evals = [];
+  for (let t = Tmin; t <= Tmax; t += 5) {
+    evals.push(e0 - (R * t / (n * F)) * Math.log(Q));
+  }
+  const emin = Math.min(...evals) - 0.02;
+  const emax = Math.max(...evals) + 0.02;
+
+  function toX(t) { return pad.l + ((t - Tmin) / (Tmax - Tmin)) * cw; }
+  function toY(e) { return pad.t + ch - ((e - emin) / (emax - emin)) * ch; }
+
+  ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 1;
+  for (let t = 200; t <= 500; t += 100) {
+    ctx.beginPath(); ctx.moveTo(toX(t), pad.t); ctx.lineTo(toX(t), pad.t + ch); ctx.stroke();
+    ctx.fillStyle = '#6B7280'; ctx.font = '10px monospace'; ctx.fillText(t + 'K', toX(t) - 12, pad.t + ch + 14);
+  }
+  const step = (emax - emin) / 4;
+  for (let i = 0; i <= 4; i++) {
+    const e = emin + i * step;
+    const py = toY(e);
+    ctx.beginPath(); ctx.moveTo(pad.l, py); ctx.lineTo(pad.l + cw, py); ctx.stroke();
+    ctx.fillStyle = '#6B7280'; ctx.font = '10px monospace'; ctx.fillText(e.toFixed(3), pad.l - 50, py + 4);
+  }
+
+  ctx.strokeStyle = '#4B5563'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + ch); ctx.lineTo(pad.l + cw, pad.t + ch); ctx.stroke();
+
+  ctx.beginPath(); ctx.strokeStyle = '#a78bfa'; ctx.lineWidth = 2.5;
+  let first = true;
+  for (let t = Tmin; t <= Tmax; t += 2) {
+    const e = e0 - (R * t / (n * F)) * Math.log(Q);
+    if (first) { ctx.moveTo(toX(t), toY(e)); first = false; }
+    else ctx.lineTo(toX(t), toY(e));
+  }
+  ctx.stroke();
+
+  const curT = parseFloat(tempSlider.value);
+  const curE = e0 - (R * curT / (n * F)) * Math.log(Q);
+  ctx.beginPath(); ctx.arc(toX(curT), toY(curE), 6, 0, Math.PI * 2);
+  ctx.fillStyle = '#f59e0b'; ctx.fill();
+  ctx.fillStyle = '#f59e0b'; ctx.font = 'bold 10px sans-serif';
+  ctx.fillText(curE.toFixed(4) + 'V', toX(curT) + 8, toY(curE) - 4);
+
+  ctx.fillStyle = '#9CA3AF'; ctx.font = '11px sans-serif';
+  ctx.fillText('E (V)', pad.l - 55, pad.t - 6);
+  ctx.fillText('Temperature (K)', pad.l + cw / 2 - 45, pad.t + ch + 38);
+}
+
+function drawStdTable() {
+  const tbody = document.getElementById('stdTable');
+  tbody.innerHTML = halfReactions.map((r, i) => `
+    <tr class="border-b border-gray-800 hover:bg-gray-800 cursor-pointer" onclick="loadReaction(${i})">
+      <td class="py-2 pr-4 text-gray-300 font-mono text-xs">${r.name}</td>
+      <td class="text-right pr-4 font-bold ${r.e0 >= 0 ? 'text-green-400' : 'text-red-400'}">${r.e0.toFixed(2)}</td>
+      <td class="text-right text-gray-400">${r.n}</td>
+    </tr>`).join('');
+}
+
+function loadReaction(i) {
+  const r = halfReactions[i];
+  document.getElementById('eStd').value = r.e0.toFixed(2);
+  document.getElementById('nElec').value = r.n;
+  update();
+}
+
+[eStdIn, nElecIn].forEach(el => el.addEventListener('input', update));
+[tempSlider, oxSlider, redSlider].forEach(el => el.addEventListener('input', update));
+
+drawStdTable();
+update();
+</script>
+</body>
+</html>
